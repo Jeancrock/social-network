@@ -12,16 +12,20 @@ export default function RegisterPage() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Payload envoyé:", { username, email, password });
     const res = await fetch(`${API_URL}/api/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, email, password }),
     });
-    if (res.ok) router.push("/login");
-    else alert("Registration failed");
+  
+    if (res.ok) {
+      router.push("/login");
+    } else {
+      const text = await res.text(); // récupérer le message du backend
+      alert(text); // popup
+    }
   };
-
+  
   return (
     <form onSubmit={submit} className="max-w-md mx-auto mt-10 space-y-2">
       <input

@@ -7,8 +7,9 @@ import (
 	"social_network_backend/handlers"
 )
 
-// Enregistre toutes les routes de l’API
+// RegisterRoutes enregistre toutes les routes de l’API avec la DB injectée.
 func RegisterRoutes(mux *http.ServeMux, db *sql.DB) {
+	// Auth & compte
 	mux.HandleFunc("/api/register", func(w http.ResponseWriter, r *http.Request) {
 		handlers.HandleRegister(w, r, db)
 	})
@@ -18,26 +19,29 @@ func RegisterRoutes(mux *http.ServeMux, db *sql.DB) {
 	mux.HandleFunc("/api/logout", func(w http.ResponseWriter, r *http.Request) {
 		handlers.HandleLogout(w, r, db)
 	})
-	mux.HandleFunc("/api/posts", func(w http.ResponseWriter, r *http.Request) {
-		handlers.HandlePosts(w, r, db)
+	mux.HandleFunc("/api/delete-account", func(w http.ResponseWriter, r *http.Request) {
+		handlers.HandleDeleteAccount(w, r, db)
 	})
+
+	// Utilisateurs
 	mux.HandleFunc("/api/users", func(w http.ResponseWriter, r *http.Request) {
 		handlers.HandleUsers(w, r, db)
 	})
 	mux.HandleFunc("/api/profile", func(w http.ResponseWriter, r *http.Request) {
 		handlers.HandleProfile(w, r, db)
 	})
-	mux.HandleFunc("/api/delete-account", func(w http.ResponseWriter, r *http.Request) {
-		handlers.HandleDeleteAccount(w, r, db)
+	mux.HandleFunc("/api/follow", func(w http.ResponseWriter, r *http.Request) {
+		handlers.HandleFollow(w, r, db)
+	})
+	mux.HandleFunc("/api/search", func(w http.ResponseWriter, r *http.Request) {
+		handlers.HandleSearch(w, r, db)
+	})
+
+	// Posts
+	mux.HandleFunc("/api/posts", func(w http.ResponseWriter, r *http.Request) {
+		handlers.HandlePosts(w, r, db)
 	})
 	mux.HandleFunc("/api/my-posts", func(w http.ResponseWriter, r *http.Request) {
 		handlers.HandleMyPosts(w, r, db)
 	})
-	mux.HandleFunc("/api/follow", func(w http.ResponseWriter, r *http.Request) {
-		handlers.HandleFollow(w, r, db)
-	})
 }
-
-// ⚠️ Ici tu reprends toutes tes fonctions : handleRegister, handleLogin, handlePosts…
-// Je ne les recopie pas en entier car elles sont déjà dans ton code,
-// il faudra juste les adapter en rajoutant `db *sql.DB` en paramètre.

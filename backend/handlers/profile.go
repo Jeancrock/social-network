@@ -5,24 +5,24 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"social_network_backend/internal/sessions"
 	"social_network_backend/models"
 )
 
-// Handler de profil
+// HandleProfile retourne le profil d'un utilisateur (par défaut l'utilisateur courant via session).
 func HandleProfile(w http.ResponseWriter, r *http.Request, db *sql.DB) {
-	cookie, err := r.Cookie("session_id")
-	if err != nil {
+	currUserID, _, err := sessions.GetUserIDFromRequest(db, r)
+	if err != nil || currUserID == "" {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	// Lire ID en query ?id= ou sinon utiliser cookie.Value
 	id := r.URL.Query().Get("id")
 	if id == "" {
-		id = cookie.Value
+		id = currUserID
 	}
 
-	// Récup user
+	// Récup utilisateur
 	var u models.User
 	row := db.QueryRow("SELECT id, username, email FROM users WHERE id=?", id)
 	if err := row.Scan(&u.ID, &u.Username, &u.Email); err != nil {
@@ -31,71 +31,97 @@ func HandleProfile(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	}
 
 	// Récup posts
-	rows, _ := db.Query(
+	postsRows, err := db.Query(
 		"SELECT id, userId, content, created FROM posts WHERE userId=? ORDER BY created DESC",
 		id,
 	)
-	defer rows.Close()
+	if err != nil {
+		http.Error(w, "Failed to fetch posts", http.StatusInternalServerError)
+		return
+	}
 	var posts []models.Post
-	for rows.Next() {
+	for postsRows.Next() {
 		var p models.Post
-		rows.Scan(&p.ID, &p.UserID, &p.Content, &p.Created)
+		if err := postsRows.Scan(&p.ID, &p.UserID, &p.Content, &p.Created); err != nil {
+			postsRows.Close()
+			http.Error(w, "Scan error posts", http.StatusInternalServerError)
+			return
+		}
 		posts = append(posts, p)
 	}
-
-	// Assurer tableau vide si null
+	postsRows.Close()
 	if posts == nil {
 		posts = []models.Post{}
 	}
-	// Followers
-	rows, _ = db.Query(`
+
+	// Followers (qui me suivent)
+	followersRows, err := db.Query(`
 		SELECT u.id, u.username, u.email
 		FROM followers f JOIN users u ON u.id=f.followerId
 		WHERE f.userId=?`, id)
-	defer rows.Close()
+	if err != nil {
+		http.Error(w, "Failed to fetch followers", http.StatusInternalServerError)
+		return
+	}
 	var followers []models.User
-	for rows.Next() {
+	for followersRows.Next() {
 		var f models.User
-		rows.Scan(&f.ID, &f.Username, &f.Email)
+		if err := followersRows.Scan(&f.ID, &f.Username, &f.Email); err != nil {
+			followersRows.Close()
+			http.Error(w, "Scan error followers", http.StatusInternalServerError)
+			return
+		}
 		followers = append(followers, f)
 	}
-
-	// Assurer tableau vide si null
+	followersRows.Close()
 	if followers == nil {
 		followers = []models.User{}
 	}
-	// Following
-	rows, _ = db.Query(`
+
+	// Following (que je suis)
+	followingRows, err := db.Query(`
 		SELECT u.id, u.username, u.email
 		FROM followers f JOIN users u ON u.id=f.userId
 		WHERE f.followerId=?`, id)
-	defer rows.Close()
+	if err != nil {
+		http.Error(w, "Failed to fetch following", http.StatusInternalServerError)
+		return
+	}
 	var following []models.User
-	for rows.Next() {
+	for followingRows.Next() {
 		var f models.User
-		rows.Scan(&f.ID, &f.Username, &f.Email)
+		if err := followingRows.Scan(&f.ID, &f.Username, &f.Email); err != nil {
+			followingRows.Close()
+			http.Error(w, "Scan error following", http.StatusInternalServerError)
+			return
+		}
 		following = append(following, f)
 	}
-
-	// Assurer tableau vide si null
+	followingRows.Close()
 	if following == nil {
 		following = []models.User{}
 	}
 
-	// Groups
-	rows, _ = db.Query(`
+	// Groupes
+	groupsRows, err := db.Query(`
 		SELECT g.name
 		FROM group_members gm JOIN groups g ON g.id=gm.groupId
 		WHERE gm.userId=?`, id)
-	defer rows.Close()
+	if err != nil {
+		http.Error(w, "Failed to fetch groups", http.StatusInternalServerError)
+		return
+	}
 	var groups []string
-	for rows.Next() {
+	for groupsRows.Next() {
 		var name string
-		rows.Scan(&name)
+		if err := groupsRows.Scan(&name); err != nil {
+			groupsRows.Close()
+			http.Error(w, "Scan error groups", http.StatusInternalServerError)
+			return
+		}
 		groups = append(groups, name)
 	}
-	// Assurer tableau vide si null
-
+	groupsRows.Close()
 	if groups == nil {
 		groups = []string{}
 	}
@@ -109,5 +135,5 @@ func HandleProfile(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	_ = json.NewEncoder(w).Encode(resp)
 }

@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS group_members(
+    id TEXT PRIMARY KEY,
+    userId TEXT,
+    groupId TEXT,
+    FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY(groupId) REFERENCES groups(id) ON DELETE CASCADE
+)
